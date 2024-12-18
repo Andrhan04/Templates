@@ -1,4 +1,4 @@
-﻿#include <iostream>
+#include <iostream>
 #include <iomanip>
 #include <vector>
 #include <queue>
@@ -14,137 +14,72 @@ using namespace std;
 
 class SQRTdec {
 private:
-	class Basket {
-	public:
-		vector<int> arr;
-		int answer = 0;
-
-		Basket() :answer(0) {};
-
-		void insert(int pos, int val) {
-			arr.insert(arr.begin() + pos, val);
-			int l = ((pos == 0) ? 0 : arr[pos - 1]);
-			int r = ((pos == arr.size() - 1) ? 0 : arr[pos + 1]);
-
-			if (val == 1) {
-				if (l + r > 0) answer++;
-			}
-			else {
-				if (l == 1 && r == 1) answer--;
-			}
-		}
-
-		void update() {
-			answer = 0;
-			for (int i = 0; i < arr.size() - 1; i++) {
-				if (arr[i] * arr[i + 1] == 1) {
-					answer++;
-				}
-			}
-		}
-
-		int query(int l, int r) {
-			int ans = 0;
-			for (int i = l; i < r; i++) {
-				if (arr[i] * arr[i + 1] == 1) {
-					ans++;
-				}
-			}
-			return ans;
-		}
+	struct Query {
+		int l, r, id;
 	};
+	vector<int> arr;
+	int K = sqrt(arr.size());
+	vector<int> cnt;
+	int a = 1, b = 0; // создаём пустой рабочий отрезок 
+	bool isLess(Query a, Query b) {
+		if (a.l / K != b.l / K)return a.l < b.l;
+		return a.r < b.r;
+	}
+	map<int, int>cntmp;
+	set<pair<int, int>>cur;
+	void func(vector<Query>q) {
+		vector<int>res(q.size());
+		for (int i = 0; i < arr.size(); i++) {
+			cntmp[arr[i]]++;
+		}
+		for (int i = 0; i < arr.size(); i++) {
+			cnt[arr[i]] = cntmp[arr[i]];//элементы массива не превышают его длину  
+			cur.insert({ cnt[arr[i]], arr[i] });
+		}
+		sort(q.begin(), q.end(), isLess);
+		for (int i = 0; i < q.size(); i++) {
+			while (a > q[i].l) {
+				add(a - 1);//left 
+				a -= 1;
+			}
+			while (b < q[i].r) {
+				add(b + 1);//right 
+				b += 1;
+			}
+			while (a < q[i].l) {
+				del(a);//left 
+				a += 1;
+			}
+			while (b > q[i].r) {
+				del(b);//right 
+				b -= 1;
+			}
+			res[q[i].id] = answer();// получаем ответ на [a...b] 
+		}
+	}
 public:
-	int len;
-	list<Basket> baskets;
-
-	void insert(int pos, int val) {
-		int s;
-		auto it = getBasketByPosition(pos, s);
-		it->insert(pos + 1 - s, val);
-		if (it->arr.size() >= 2 * len) {
-			Basket next;
-			next.arr = vector<int>(it->arr.begin() + len, it->arr.end());
-			next.update();
-			it->arr.resize(len);
-		}
+	void add(int index) {
+		int value = arr[index];
+		if (cnt[value] > 0)
+			cur.erase({ cnt[value], value });
+		cnt[arr[index]] += 1;
+		cur.insert({ cnt[value], value });
 	}
-	list<Basket>::iterator getBasketByPosition(int pos, int& s) {
-		pos++;
-		auto it = baskets.begin();
-		for (auto basket = baskets.begin(); basket != baskets.end(); basket++) {
-			if (s + basket->arr.size() >= pos) {
-				it = basket;
-				break;
-			}
-			s += basket->arr.size();
-		}
-		return it;
+	void del(int index) {
+		int value = arr[index];
+		cur.erase({ cnt[value], value });
+		cnt[arr[index]] -= 1;
+		if (cnt[value] > 0)
+			cur.insert({ cnt[value], value });
 	}
-	void erase(int pos) {
-		int s = 0;
-		auto it = getBasketByPosition(pos, s);
-		it->arr.erase(it->arr.begin() + (pos - s));
-		it->update();
-		if (it->arr.empty()) {
-			baskets.erase(it);
-		}
+	int answer() {
+		auto i = --cur.end();
+		return i->second; // находим максимальную пару в множестве 
 	}
-
-	int get(int l, int r) {
-		int sm = 0; int b = 0;
-		for (auto basket = baskets.begin(); basket != baskets.end(); basket++) {
-			if (b >= l && b + basket->arr.size() <= r) {
-				sm += basket->answer;
-			}
-			else {
-				if (b <= l && r >= b + basket->arr.size()) {
-					sm += basket->query(l - b, basket->arr.size() - 1);
-					auto next = basket; next++;
-					if (basket->arr.back() * next->arr[0] == 1) {
-						sm++;
-					}
-				}
-				if (b >= l && r <= b + basket->arr.size()) {
-					sm += basket->query(0, r - b);
-					auto next = basket; next--;
-					if (basket->arr[0] * next->arr.back() == 1) {
-						sm++;
-					}
-				}
-			}
-			b += basket->arr.size();
-		}
-		return l + r;
-	}
-
-	SQRTdec(string& s) {
-		len = (int)(sqrt(s.size())) + 1;
-		for (int i = 0; i < s.size(); i++) {
-			if (i % len == 0) {
-				baskets.push_back(Basket());
-			}
-			baskets.back().arr.push_back(s[i] == '0' ? 0 : 1);
-		}
-
-		for (auto& bas : baskets) {
-			int ans = 0;
-			for (int i = 0; i < bas.arr.size() - 1; i++) {
-				if (bas.arr[i] * bas.arr[i + 1] == 1) {
-					ans++;
-				}
-			}
-			bas.answer = ans;
-		}
-	}
-
-	void print() {
-		cerr << endl;
-		for (auto i : baskets) {
-			for (auto j : i.arr) {
-				cerr << j << ' ';
-			}
-			cerr << endl;
-		}
+	SQRTdec(vector<int>& v) {
+		arr = v;
+		int K = sqrt(v.size());
+		cnt.resize(arr.size() + 1);
 	}
 };
 
@@ -279,6 +214,40 @@ public:
 	}
 };
 
+class DSU {
+public:
+	DSU(int n) {
+		p.resize(n);
+		for (int i = 0; i < n; ++i) {
+			p[i] = i;
+		}
+	}
+	void Unite(int x,int y) {
+		unite(x, y);
+	}
+	int Find(int x) {
+		return find(x);
+	}
+private:
+	vector<int> p;
+	int find(int x) {
+		if (p[x] == x) {
+			return x;
+		}
+		return p[x] = find(p[x]);
+	}
+	void unite(int x, int y) {
+		x = find(x);
+		y = find(y);
+		if (x != y) {
+			if (rand() & 1)
+				p[x] = y;
+			else
+				p[y] = x;
+		}
+	}
+};
+
 class KMP {
 private:
 	#define all(v) (v).begin() , (v).end()
@@ -318,7 +287,8 @@ private:
 #define Graf vector<vector<int>>
 	Graf up;
 	vector<int> d;
-	void dfs(int u, int p, Graf& g) {
+	Graf g;
+	void dfs(int u, int p) {
 		int sz = up[u].size() - 1;
 		up[u][0] = p;
 
@@ -330,7 +300,7 @@ private:
 		for (int neighbor : g[u]) {
 			if (neighbor != p) {
 				d[neighbor] = d[u] + 1;
-				dfs(neighbor, u, g);
+				dfs(neighbor, u);
 			}
 		}
 	}
@@ -377,13 +347,14 @@ public:
 				g[u].push_back(i);
 			}
 		}
-
 		int s = ceil(log2(n)) + 1;
-
 		up.assign(n, vector<int>(s, -1));
 		d.assign(n, 0);
-
-		dfs(0, -1, g);
+		dfs(0, -1);
+	}
+	Graf_with_LCA() {}
+	Graf_with_LCA(Graf& my) {
+		g = my;
 	}
 };
 
@@ -423,6 +394,100 @@ public:
 			}
 		}
 		return levels[n][0];
+	}
+};
+
+struct pt {
+	double x, y;
+	const double EPS = 1e-9;
+	bool operator< (const pt& p) const {
+		return x < p.x - EPS || abs(x - p.x) < EPS && y < p.y - EPS;
+	}
+	pt(double x, double y) :x(x), y(y) {}
+	pt operator = (const pt& other) {
+		return other;
+	}
+};
+
+class Line
+{
+public:
+	inline bool betw(double l, double r, double x) {
+		return min(l, r) <= x + EPS && x <= max(l, r) + EPS;
+	}
+	Line(double A, double B, double C) {
+		a = A;
+		b = B;
+		c = C;
+		norm();
+	}
+	Line(pt p, pt q) {
+		a = p.y - q.y;
+		b = q.x - p.x;
+		c = -a * p.x - b * p.y;
+		norm();
+	}
+
+	bool parallel(Line n) {
+		return abs(det(a, b, n.a, n.b)) < EPS;
+	}
+	bool operator == (Line& other) {
+		return abs(det(a, b, other.a, other.b)) < EPS
+			&& abs(det(a, c, other.a, other.c)) < EPS
+			&& abs(det(b, c, other.b, other.c)) < EPS;
+	}
+	bool intersect(Line& other, pt& res) {
+		double zn = det(a, b, other.a, other.b);
+		if (abs(zn) < EPS)
+			return false;
+		res.x = -det(c, b, other.c, other.b) / zn;
+		res.y = -det(a, c, other.a, other.c) / zn;
+		return true;
+	}
+
+	inline bool intersect_1d(double a, double b, double c, double d) {
+		if (a > b)  swap(a, b);
+		if (c > d)  swap(c, d);
+		return max(a, c) <= min(b, d) + EPS;
+	}
+	bool intersect(pt& a, pt& b, pt& c, pt& d, pt& left, pt& right) {
+		if (!intersect_1d(a.x, b.x, c.x, d.x) || !intersect_1d(a.y, b.y, c.y, d.y))
+			return false;
+		Line m(a, b);
+		Line n(c, d);
+		double zn = det(m.a, m.b, n.a, n.b);
+		if (abs(zn) < EPS) {
+			if (abs(m.dist(c)) > EPS || abs(n.dist(a)) > EPS)
+				return false;
+			if (b < a)  swap(a, b);
+			if (d < c)  swap(c, d);
+			left = max(a, c);
+			right = min(b, d);
+			return true;
+		}
+		else {
+			left.x = right.x = -det(m.c, m.b, n.c, n.b) / zn;
+			left.y = right.y = -det(m.a, m.c, n.a, n.c) / zn;
+			return betw(a.x, b.x, left.x)
+				&& betw(a.y, b.y, left.y)
+				&& betw(c.x, d.x, left.x)
+				&& betw(c.y, d.y, left.y);
+		}
+	}
+
+	double dist(pt p) const {
+		return a * p.x + b * p.y + c;
+	}
+private:
+	double a, b, c;
+	const double EPS = 1e-9;
+	double det(double a, double b, double c, double d) {
+		return a * d - b * c;
+	}
+	void norm() {
+		double z = sqrt(a * a + b * b);
+		if (abs(z) > EPS)
+			a /= z, b /= z, c /= z;
 	}
 };
 
